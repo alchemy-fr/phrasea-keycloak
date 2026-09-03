@@ -16,10 +16,10 @@ to be started with `start --optimized`.
 
 ## Run
 
-The image is published to the public AWS ECR registry:
+The image is published as `ps-keycloak` to the registry configured in CI:
 
 ```bash
-docker run --rm public.ecr.aws/b2s9z7l1/ps-keycloak:latest start --optimized
+docker run --rm <registry>/ps-keycloak:latest start --optimized
 ```
 
 See the `keycloak` service in
@@ -37,7 +37,7 @@ The SPI jars are compiled by Maven in a builder stage; no local toolchain is nee
 ## CI
 
 Every push and pull request builds the Docker image. Pushes to `main` publish
-`public.ecr.aws/b2s9z7l1/ps-keycloak:latest` (plus the commit SHA); any git tag
-publishes the corresponding image tag (semver tags also publish the stripped
-version). Publishing uses the `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
-repository secrets; pull requests only build, without pushing.
+`<ECR_REGISTRY>/ps-keycloak:latest` (plus the commit SHA); any git tag publishes the
+corresponding image tag (semver tags also publish the stripped version). Publishing
+uses the `ECR_REGISTRY` repository variable and the `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` repository secrets; pull requests only build, without pushing.

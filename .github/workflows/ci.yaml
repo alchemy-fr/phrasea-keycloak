@@ -11,7 +11,8 @@ on:
 env:
   # ECR Public login requires us-east-1
   AWS_REGION: us-east-1
-  ECR_REGISTRY: public.ecr.aws/b2s9z7l1
+  # Repository variable (Settings > Secrets and variables > Actions > Variables)
+  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
   IMAGE_NAME: ps-keycloak
 
 jobs:
