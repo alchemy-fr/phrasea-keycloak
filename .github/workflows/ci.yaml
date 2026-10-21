@@ -20,12 +20,34 @@ jobs:
     name: 'Build & push image'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
       - uses: docker/setup-buildx-action@v4
+
+      # On main, the Keycloak version becomes a release of this repo (git tag +
+      # GitHub release + image tag) the first time it is pushed. Rebuilds of an
+      # already released version only refresh `latest` and the SHA tag.
+      - name: Resolve Keycloak version
+        id: version
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          pom_version=$(sed -n 's|.*<keycloak.version>\(.*\)</keycloak.version>.*|\1|p' pom.xml)
+          docker_version=$(sed -n 's|^FROM quay.io/keycloak/keycloak:\([^ ]*\).*|\1|p' Dockerfile | sort -u)
+          if [ -z "$pom_version" ] || [ "$pom_version" != "$docker_version" ]; then
+            echo "::error::Keycloak version mismatch: pom.xml='$pom_version' Dockerfile='$docker_version'"
+            exit 1
+          fi
+          echo "version=$pom_version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/$pom_version" >/dev/null; then
+            echo "Tag $pom_version already exists, no release will be created"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Configure AWS Credentials
         if: ${{ github.event_name != 'pull_request' }}
@@ -50,6 +72,7 @@ jobs:
             type=sha,format=long,prefix=
             type=ref,event=tag
             type=semver,pattern={{version}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ steps.version.outputs.release == 'true' }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and Push
@@ -63,3 +86,15 @@ jobs:
           cache-to: type=gha,mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Create GitHub release
+        if: ${{ steps.version.outputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --notes "Keycloak $VERSION — image \`${ECR_REGISTRY}/${IMAGE_NAME}:${VERSION}\`" \
+            --generate-notes
