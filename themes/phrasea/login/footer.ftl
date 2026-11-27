@@ -5,4 +5,5 @@
             <a href="${properties['env.DASHBOARD_CLIENT_URL']}"> Dashboard <a/> 
         </div>
     </#if>
+    <template id="login-branding-messages" data-no-account="${msg("noAccount")}" data-register="${msg("doRegister")}"></template>
 </#macro>
